@@ -1,10 +1,15 @@
 from os import environ
 import aiohttp
 from pyrogram import Client, filters
+import time
+import cloudscraper
+from urllib.parse import urlparse
+from bs4 import BeautifulSoup
 
-API_ID = environ.get('API_ID')
-API_HASH = environ.get('API_HASH')
-BOT_TOKEN = environ.get('BOT_TOKEN')
+API_ID = 2054877
+API_HASH = '4227c1e45e462209a3dcc67ada88a44f'
+BOT_TOKEN = '1861652521:AAHsirFvvZD0bTwkYgXC_vK3KiMv4WVHMSE'
+
 API_KEY = environ.get('API_KEY', '5fd20df0c4db85798dd4f5ff3d03e3606a94f98b')
 
 bot = Client('gplink bot',
@@ -19,27 +24,55 @@ bot = Client('gplink bot',
 async def start(bot, message):
     await message.reply(
         f"**𝗛𝗘𝗟𝗟𝗢🎈{message.chat.first_name}!**\n\n"
-        "𝗜'𝗺 𝗚𝗣𝗹𝗶𝗻𝗸 𝗯𝗼𝘁. 𝗝𝘂𝘀𝘁 𝘀𝗲𝗻𝗱 𝗺𝗲 𝗹𝗶𝗻𝗸 𝗮𝗻𝗱 𝗴𝗲𝘁 𝗦𝗵𝗼𝗿𝘁𝗲𝗻𝗲𝗱 𝗨𝗥𝗟. \n\n 𝗧𝗵𝗶𝘀 𝗕𝗼𝘁 𝗜𝘀 𝗠𝗮𝗱𝗲 𝗕𝘆 @CyberBoyAyush💖")
+        "hey dude i am upgraded version .support multiple links")
 
 
 @bot.on_message(filters.regex(r'https?://[^\s]+') & filters.private)
 async def link_handler(bot, message):
     link = message.matches[0].group(0)
+    link  =  f"{message.text}"
     try:
-        short_link = await get_shortlink(link)
-        await message.reply(f'Here is your👉 [Short Link🎈]({short_link})', quote=True)
+        link = link.split()
+        for i in a:
+            if 'https' in i :
+              url = i
+                
+        short_link = await gplinks_bypass(url)
+        await message.reply(f'Here is your👉{short_link} , quote=True)
     except Exception as e:
         await message.reply(f'Error: {e}', quote=True)
 
 
-async def get_shortlink(link):
-    url = 'https://gplinks.in/api'
-    params = {'api': API_KEY, 'url': link}
+async def gplinks_bypass(url: str):
+    client = cloudscraper.create_scraper(allow_brotli=False)
+    p = urlparse(url)
+    final_url = f'{p.scheme}://{p.netloc}/links/go'
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, raise_for_status=True) as response:
-            data = await response.json()
-            return data["shortenedUrl"]
+    res = client.head(url)
+    header_loc = res.headers['location']
+    param = header_loc.split('postid=')[-1]
+    req_url = f'{p.scheme}://{p.netloc}/{param}'
+
+    p = urlparse(header_loc)
+    ref_url = f'{p.scheme}://{p.netloc}/'
+
+    h = { 'referer': ref_url }
+    res = client.get(req_url, headers=h, allow_redirects=False)
+
+    bs4 = BeautifulSoup(res.content, 'html.parser')
+    inputs = bs4.find_all('input')
+    data = { input.get('name'): input.get('value') for input in inputs }
+
+    h = {
+        'referer': ref_url,
+        'x-requested-with': 'XMLHttpRequest',
+    }
+    time.sleep(10)
+    res = client.post(final_url, headers=h, data=data)
+    try:
+        return res.json()['url'].replace('\/','/')
+    except: return 'Something went wrong :('
+
 
 
 bot.run()
